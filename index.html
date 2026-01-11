@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trò Chơi Ô Chữ: CHIẾN THẮNG</title>
+    <style>
+        :root {
+            --primary: #0d6efd;
+            --success: #198754;
+            --warning: #ffc107;
+            --dark: #212529;
+            --cell-size: 45px;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1 {
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .game-container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            display: flex;
+            gap: 40px;
+            max-width: 1200px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        /* Khu vực lưới ô chữ */
+        .grid-area {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            align-items: flex-start; /* Để căn lề trái, sau đó dùng margin để chỉnh vị trí */
+        }
+
+        .row {
+            display: flex;
+            gap: 5px;
+            transition: all 0.3s;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .row:hover {
+            transform: scale(1.02);
+        }
+
+        .row.active::before {
+            content: '➤';
+            position: absolute;
+            left: -30px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--warning);
+            font-size: 24px;
+            animation: bounce 1s infinite;
+        }
+
+        .cell {
+            width: var(--cell-size);
+            height: var(--cell-size);
+            background: white;
+            border-radius: 4px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            font-size: 20px;
+            color: #333;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+            text-transform: uppercase;
+            user-select: none;
+        }
+
+        /* Ô đặc biệt (Hàng dọc) */
+        .cell.key-cell {
+            border: 3px solid var(--warning);
+            background-color: #fff3cd;
+        }
+
+        .cell.correct {
+            background-color: var(--success);
+            color: white;
+            animation: flip 0.6s ease;
+        }
+        
+        .cell.key-cell.correct {
+            background-color: #b8860b; /* Darker gold */
+        }
+
+        /* Số thứ tự câu hỏi */
+        .row-num {
+            width: 30px;
+            height: var(--cell-size);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--primary);
+            color: white;
+            border-radius: 50%;
+            margin-right: 10px;
+            font-weight: bold;
+        }
+
+        /* Khu vực điều khiển */
+        .control-area {
+            width: 350px;
+            background: rgba(0,0,0,0.3);
+            padding: 20px;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .question-box {
+            background: white;
+            color: #333;
+            padding: 15px;
+            border-radius: 8px;
+            min-height: 100px;
+            font-size: 18px;
+            line-height: 1.4;
+            border-left: 5px solid var(--warning);
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        input {
+            flex: 1;
+            padding: 10px;
+            border-radius: 5px;
+            border: none;
+            font-size: 16px;
+            text-transform: uppercase;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            background: var(--success);
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        button:hover {
+            background: #146c43;
+        }
+
+        button#solve-all {
+            background: var(--warning);
+            color: #333;
+            margin-top: auto;
+        }
+
+        /* Hiệu ứng */
+        @keyframes flip {
+            0% { transform: rotateX(0); }
+            50% { transform: rotateX(90deg); background: white; }
+            100% { transform: rotateX(0); background: var(--success); }
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translate(-50%, -50%); }
+            50% { transform: translate(-30%, -50%); }
+        }
+
+        .hidden {
+            visibility: hidden;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+</head>
+<body>
+
+    <h1>TRÒ CHƠI ĐI TÌM Ô CHỮ</h1>
+    <h3 style="color: var(--warning); margin-top: 0;">CHỦ ĐỀ: VUI - KHỎE - NĂNG LƯỢNG</h3>
+
+    <div class="game-container">
+        <div class="grid-area" id="grid">
+            </div>
+
+        <div class="control-area">
+            <div style="font-weight: bold; color: var(--warning); margin-bottom: 5px;">CÂU HỎI:</div>
+            <div class="question-box" id="question-display">
+                Chọn một hàng để hiện câu hỏi...
+            </div>
+
+            <div class="input-group">
+                <input type="text" id="answer-input" placeholder="Nhập đáp án..." disabled>
+                <button id="submit-btn" disabled>Trả lời</button>
+            </div>
+            
+            <div style="margin-top: 20px; text-align: center; color: #ccc; font-size: 0.9em;">
+                Từ khóa dọc: <strong style="color: var(--warning); font-size: 1.2em;">???</strong>
+            </div>
+             <button id="solve-all" onclick="solveVertical()">MỞ KHÓA TỪ HÀNG DỌC</button>
+        </div>
+    </div>
+
+    <script>
+        // DỮ LIỆU CÂU HỎI VÀ ĐÁP ÁN (Đã bỏ dấu cách trong đáp án để dễ xử lý)
+        // keyIndex: Vị trí của chữ cái thuộc hàng dọc (bắt đầu từ 0)
+        const data = [
+            { question: "Con gì tám cẳng hai càng, chẳng đi mà lại bò ngang cả đời?", answer: "CONCUA", keyIndex: 3 }, // C
+            { question: "Con gì nuôi không tốn cơm, càng nuôi càng nặng, đập ra mới lấy được ruột?", answer: "HEODAT", keyIndex: 0 }, // H
+            { question: "Cái gì càng nhiều người biết thì càng khó giữ?", answer: "BIMAT", keyIndex: 1 }, // I
+            { question: "Trong công ty, ai là người luôn luôn đúng?", answer: "SEP", keyIndex: 1 }, // Ê (Sếp) -> E
+            { question: "Theo ngôn ngữ vui, 'Vợ' được gọi là gì?", answer: "NOCNHA", keyIndex: 0 }, // N
+            { question: "Cái gì thường đến vào đầu tháng nhưng lại ra đi rất nhanh?", answer: "TIENLUONG", keyIndex: 0 }, // T
+            { question: "Cái gì có kim mà không có chỉ, chạy cả ngày lẫn đêm?", answer: "DONGHO", keyIndex: 4 }, // H
+            { question: "Bỏ ngoài nướng trong, ăn ngoài bỏ trong là cái gì?", answer: "BAPNGO", keyIndex: 1 }, // Ă -> A
+            { question: "Cái gì của người khác nhưng mình lại hay dùng để tiêu xài?", answer: "NO", keyIndex: 0 }, // N (Nợ)
+            { question: "Cái gì bạn cười với nó thì nó cười lại, đấm nó thì nó vỡ?", answer: "GUONG", keyIndex: 0 }  // G
+        ];
+
+        let currentRowIndex = -1;
+        const gridElement = document.getElementById('grid');
+        const questionDisplay = document.getElementById('question-display');
+        const inputField = document.getElementById('answer-input');
+        const submitBtn = document.getElementById('submit-btn');
+
+        // Tìm vị trí xa nhất của từ khóa để căn lề trái
+        // Ví dụ: hàng 7 (DONGHO) chữ H ở vị trí 4. Hàng 2 (HEODAT) chữ H ở vị trí 0.
+        // Ta cần đẩy hàng 2 sang phải 4 ô để thẳng hàng.
+        const maxKeyIndex = Math.max(...data.map(d => d.keyIndex));
+
+        // KHỞI TẠO GAME
+        function initGame() {
+            data.forEach((item, index) => {
+                const rowDiv = document.createElement('div');
+                rowDiv.className = 'row';
+                rowDiv.onclick = () => selectRow(index);
+
+                // Số thứ tự
+                const num = document.createElement('div');
+                num.className = 'row-num';
+                num.innerText = index + 1;
+                rowDiv.appendChild(num);
+
+                // Tính toán khoảng trắng đệm (Spacer) bên trái để căn thẳng hàng dọc
+                const paddingCount = maxKeyIndex - item.keyIndex;
+                for(let i=0; i<paddingCount; i++) {
+                    const spacer = document.createElement('div');
+                    spacer.className = 'cell hidden'; // Ẩn nhưng vẫn chiếm diện tích
+                    rowDiv.appendChild(spacer);
+                }
+
+                // Tạo các ô chữ
+                for(let charIndex = 0; charIndex < item.answer.length; charIndex++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    if (charIndex === item.keyIndex) {
+                        cell.classList.add('key-cell'); // Ô thuộc từ khóa dọc
+                    }
+                    cell.dataset.char = item.answer[charIndex]; // Lưu đáp án ẩn
+                    cell.innerText = ""; // Ban đầu rỗng
+                    rowDiv.appendChild(cell);
+                }
+
+                gridElement.appendChild(rowDiv);
+            });
+        }
+
+        // CHỌN HÀNG
+        function selectRow(index) {
+            // Reset active styles
+            document.querySelectorAll('.row').forEach(r => r.classList.remove('active'));
+            
+            // Set active
+            const rows = document.querySelectorAll('.row');
+            rows[index].classList.add('active');
+            
+            currentRowIndex = index;
+            questionDisplay.innerText = data[index].question;
+            
+            // Enable input
+            inputField.disabled = false;
+            submitBtn.disabled = false;
+            inputField.value = '';
+            inputField.focus();
+        }
+
+        // XỬ LÝ TRẢ LỜI
+        function checkAnswer() {
+            if (currentRowIndex === -1) return;
+
+            const userAnswer = inputField.value.trim().toUpperCase().replace(/\s/g, '');
+            // Chuẩn hóa tiếng Việt (ví dụ user nhập CUA -> CUA, user nhập SẾP -> SEP)
+            // Code đơn giản này so sánh chuỗi không dấu. 
+            // Để chính xác tuyệt đối, ta so sánh với đáp án chuẩn trong data.
+            
+            const correctAnswer = data[currentRowIndex].answer; // Ở đây data đang lưu dạng không dấu/hoặc tiếng anh
+            
+            // Logic so sánh lỏng lẻo (chấp nhận có dấu hoặc không dấu nếu bạn mở rộng data)
+            // Hiện tại data.answer là 'CONCUA', user cần nhập 'CONCUA' hoặc 'CON CUA'
+            
+            // Cách đơn giản: Chuyển tiếng Việt có dấu thành không dấu để so sánh
+            const normalize = (str) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/Đ/g, "D");
+            
+            // So sánh (User input đã upper và bỏ space)
+            // Tuy nhiên data của mình đang là tiếng Việt gõ kiểu Telex không dấu (CONCUA).
+            // Nếu user gõ "CON CUA" -> "CONCUA" == "CONCUA" => Đúng.
+            // Nếu user gõ "SẾP" -> "SEP" (sau normalize) == "SEP" => Đúng.
+            
+            if (normalize(userAnswer) === normalize(correctAnswer)) {
+                revealRow(currentRowIndex);
+                confetti({
+                    particleCount: 100,
+                    spread: 70,
+                    origin: { y: 0.6 }
+                });
+                playSound('correct');
+                inputField.value = '';
+                questionDisplay.innerText = "CHÍNH XÁC! TUYỆT VỜI!";
+            } else {
+                questionDisplay.innerText = "SAI RỒI! CỐ LÊN NÀO! (Gợi ý: " + data[currentRowIndex].question + ")";
+                shakeInput();
+            }
+        }
+
+        function revealRow(index) {
+            const row = document.querySelectorAll('.row')[index];
+            const cells = row.querySelectorAll('.cell:not(.hidden)');
+            const answer = data[index].answer;
+
+            cells.forEach((cell, i) => {
+                cell.innerText = answer[i]; // Hiện chữ
+                cell.classList.add('correct');
+            });
+        }
+        
+        function solveVertical() {
+             const rows = document.querySelectorAll('.row');
+             let delay = 0;
+             rows.forEach((row, index) => {
+                 setTimeout(() => {
+                     // Chỉ mở ô keyword
+                     const keyIndex = data[index].keyIndex;
+                     // Tìm đúng ô keyword trong DOM (bỏ qua các ô hidden spacer)
+                     const cells = row.querySelectorAll('.cell:not(.hidden)');
+                     const cell = cells[keyIndex];
+                     cell.innerText = data[index].answer[keyIndex];
+                     cell.classList.add('correct');
+                     cell.style.color = 'red'; // Nổi bật từ khóa
+                     cell.style.fontSize = '24px';
+                 }, delay);
+                 delay += 100;
+             });
+             
+             setTimeout(() => {
+                 confetti({
+                    particleCount: 300,
+                    spread: 100,
+                    origin: { y: 0.6 }
+                });
+                alert("TỪ KHÓA: CHIẾN THẮNG!");
+             }, delay + 500);
+        }
+
+        function shakeInput() {
+            inputField.style.border = "2px solid red";
+            inputField.classList.add('shake');
+            setTimeout(() => {
+                inputField.style.border = "none";
+                inputField.classList.remove('shake');
+            }, 500);
+        }
+
+        function playSound(type) {
+            // Giả lập âm thanh đơn giản nếu cần
+            // const audio = new Audio('path_to_sound.mp3'); audio.play();
+        }
+
+        // Sự kiện
+        submitBtn.onclick = checkAnswer;
+        inputField.addEventListener("keypress", function(event) {
+            if (event.key === "Enter") {
+                checkAnswer();
+            }
+        });
+
+        // Run
+        initGame();
+
+    </script>
+</body>
+</html>
